@@ -1,8 +1,11 @@
 from rest_framework import generics
+from django.db import models
 from .models import Note
 from audios.models import Audio
 from .serializers import NoteSerializer, NoteCreateSerializer
 
+
+from pdfs.models import Pdf
 
 class NoteCreateView(generics.CreateAPIView):
     serializer_class = NoteCreateSerializer
@@ -19,10 +22,24 @@ class NoteListView(generics.ListAPIView):
         except Audio.DoesNotExist:
             return Note.objects.none()
 
+class PdfNoteListView(generics.ListAPIView):
+    serializer_class = NoteSerializer
+
+    def get_queryset(self):
+        pdf_id = self.kwargs.get('pdf_id')
+        try:
+            pdf = Pdf.objects.get(id=pdf_id, user=self.request.user)
+            return Note.objects.filter(pdf=pdf)
+        except Pdf.DoesNotExist:
+            return Note.objects.none()
+
 
 class NoteDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = NoteSerializer
 
     def get_queryset(self):
-        return Note.objects.filter(audio__user=self.request.user)
+        user = self.request.user
+        return Note.objects.filter(
+            models.Q(audio__user=user) | models.Q(pdf__user=user)
+        )
 
