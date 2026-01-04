@@ -56,7 +56,11 @@ This is the backend API for the Audio Notes application, built with Django and D
     - Update the `DATABASES` configuration in `audio_notes_backend/settings.py` if your credentials differ from the defaults:
         ```python
         'USER': 'postgres',
+<<<<<<< HEAD
         'PASSWORD': 'system', # Update this to your password
+=======
+        'PASSWORD': '12345', # Update this to your password
+>>>>>>> c6c2baae2d57bf9a12f78736aecaa4dbdc908ead
         'HOST': 'localhost',
         ```
     - Alternatively, use environment variables if configured.
