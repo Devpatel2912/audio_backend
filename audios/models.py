@@ -3,13 +3,9 @@ from accounts.models import User
 from folders.models import Folder
 
 
-def audio_upload_path(instance, filename):
-    return f'audio/{instance.user.id}/{filename}'
-
-
 class Audio(models.Model):
-    title = models.CharField(max_length=255)
-    audio_file = models.FileField(upload_to=audio_upload_path)
+    title = models.CharField(max_length=255, blank=True, default='Audio')
+    file = models.FileField(upload_to='audio/')
     duration = models.FloatField(default=0.0)
     last_played_position = models.FloatField(default=0.0)
     folder = models.ForeignKey(Folder, on_delete=models.CASCADE, related_name='audios', null=True, blank=True)
@@ -20,5 +16,5 @@ class Audio(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return self.title
+        return self.title or "Audio"
 

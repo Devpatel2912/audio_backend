@@ -5,7 +5,7 @@ from .models import Audio
 class AudioSerializer(serializers.ModelSerializer):
     class Meta:
         model = Audio
-        fields = ('id', 'title', 'audio_file', 'duration', 'last_played_position', 'folder', 'user', 'created_at')
+        fields = '__all__'
         read_only_fields = ('id', 'user', 'created_at')
 
     def validate_folder(self, value):
