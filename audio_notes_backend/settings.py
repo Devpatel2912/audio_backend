@@ -7,6 +7,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY', default='django-insecure-change-this-in-production')
 
 DEBUG = config('DEBUG', default=True, cast=bool)
+# DEBUG = True
 
 # ALLOWED_HOSTS = [
 #     'rosalia-unthrashed-emergently.ngrok-free.dev',
@@ -69,7 +70,7 @@ WSGI_APPLICATION = 'audio_notes_backend.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'audionotes_db',
+        'NAME': 'audionotes_db',    
         'USER': 'postgres',
         'PASSWORD': 'system',
         'HOST': 'localhost',

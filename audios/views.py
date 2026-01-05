@@ -1,5 +1,6 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
+import os
 from .models import Audio
 from .serializers import AudioSerializer, AudioUpdatePositionSerializer
 from folders.models import Folder
@@ -25,6 +26,27 @@ class AudioListView(generics.ListAPIView):
         else:
             queryset = queryset.filter(folder__isnull=True)
         return queryset
+
+    def list(self, request, *args, **kwargs):
+        queryset = self.filter_queryset(self.get_queryset())
+
+        # Filter out audios where file does not exist
+        valid_audios = []
+        for audio in queryset:
+            try:
+                if audio.audio_file and os.path.exists(audio.audio_file.path):
+                    valid_audios.append(audio)
+            except Exception:
+                # If path access fails (e.g. storage issue), skip it
+                continue
+        
+        page = self.paginate_queryset(valid_audios)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+
+        serializer = self.get_serializer(valid_audios, many=True)
+        return Response(serializer.data)
 
 
 class AudioDetailView(generics.RetrieveUpdateDestroyAPIView):
