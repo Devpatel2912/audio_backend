@@ -5,7 +5,7 @@ from folders.models import Folder
 class PdfSerializer(serializers.ModelSerializer):
     class Meta:
         model = Pdf
-        fields = ['id', 'title', 'pdf_file', 'folder', 'user', 'created_at']
+        fields = '__all__'
         read_only_fields = ['id', 'created_at', 'user']
 
     def create(self, validated_data):
@@ -22,9 +22,6 @@ class FolderPdfUploadSerializer(serializers.Serializer):
 
     def validate(self, attrs):
         if not attrs.get('folder') and not attrs.get('folder_name'):
-             # If no folder ID and no folder Name, maybe upload to root?
-             # For now require at least one or root logic.
-             # Actually Audio allows root.
              pass
         return attrs
 
@@ -45,7 +42,7 @@ class FolderPdfUploadSerializer(serializers.Serializer):
         for file in pdf_files:
             pdf = Pdf.objects.create(
                 title=file.name,
-                pdf_file=file,
+                file=file,
                 folder=folder,
                 user=user
             )

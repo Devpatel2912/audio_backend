@@ -14,9 +14,17 @@ from folders.serializers import FolderSerializer
 @parser_classes([MultiPartParser, FormParser])
 def upload_audio(request):
     file = request.FILES.get('audio')
-    title = request.data.get('title', 'Audio')
-    duration = request.data.get('duration', 0.0)
-    folder_id = request.data.get('folder')
+    
+    # Try getting data from request.data, fallback to request.POST
+    title = request.data.get('title') or request.POST.get('title') or 'Audio'
+    
+    duration_val = request.data.get('duration') or request.POST.get('duration')
+    try:
+        duration = float(duration_val) if duration_val else 0.0
+    except (ValueError, TypeError):
+        duration = 0.0
+
+    folder_id = request.data.get('folder') or request.POST.get('folder')
 
     if not file:
         return Response({'error': 'No audio file provided. Key must be "audio".'}, status=400)

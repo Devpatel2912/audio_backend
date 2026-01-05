@@ -33,15 +33,72 @@ class PdfViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], url_path='upload')
     def upload_single(self, request):
-        serializer = self.get_serializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        file = request.FILES.get('pdf')
+        if not file:
+            return Response({'error': 'No PDF file provided. Key must be "pdf".'}, status=400)
+
+        title = request.data.get('title', file.name)
+        folder_id = request.data.get('folder')
+        
+        from folders.models import Folder
+        folder = None
+        if folder_id:
+             try:
+                 folder = Folder.objects.get(id=folder_id, user=request.user)
+             except Folder.DoesNotExist:
+                 pass
+
+        pdf = Pdf.objects.create(
+            file=file,
+            title=title,
+            user=request.user,
+            folder=folder
+        )
+        serializer = PdfSerializer(pdf)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['post'], url_path='upload-multiple')
     def upload_multiple(self, request):
-        serializer = FolderPdfUploadSerializer(data=request.data, context={'request': request})
+        # We can reuse FolderPdfUploadSerializer if updated, or allow manual handling like audio
+        # Using Serializer is cleaner for multiple files if logic is complex, 
+        # but manual is more robust against DRF parser confusion.
+        
+        folder_id = request.data.get('folder')
+        folder_name = request.data.get('folder_name')
+        
+        files = request.FILES.getlist('pdf_files')
+        if not files:
+             files = request.FILES.getlist('pdf')
+        
+        if not files:
+             return Response({"error": "No PDF files provided"}, status=status.HTTP_400_BAD_REQUEST)
+             
+        from folders.models import Folder
+        folder = None
+        if folder_id:
+            try:
+                folder = Folder.objects.get(id=folder_id, user=request.user)
+            except Folder.DoesNotExist:
+                return Response({'error': 'Folder not found'}, status=404)
+        elif folder_name:
+             folder = Folder.objects.create(name=folder_name, user=request.user, folder_type='pdf')
+
+        created_pdfs = []
+        for f in files:
+            title = f.name
+            pdf = Pdf.objects.create(
+                title=title,
+                file=f,
+                user=request.user,
+                folder=folder
+            )
+            created_pdfs.append(pdf)
+
+        response_data = {
+            'folder': FolderSerializer(folder).data if folder else None,
+            'uploaded_pdfs': PdfSerializer(created_pdfs, many=True).data
+        }
+        return Response(response_data, status=status.HTTP_201_CREATED)
         if serializer.is_valid():
             result = serializer.save()
             response_data = {
