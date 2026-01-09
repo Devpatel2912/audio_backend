@@ -33,7 +33,6 @@ INSTALLED_APPS = [
     'folders',
     'audios',
     'notes',
-    'pdfs',
 ]
 
 MIDDLEWARE = [

@@ -2,7 +2,7 @@ from rest_framework.decorators import api_view, permission_classes, parser_class
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
-from rest_framework import generics, status
+from rest_framework import generics, status, permissions
 import os
 from .models import Audio
 from .serializers import AudioSerializer, AudioUpdatePositionSerializer
@@ -37,7 +37,7 @@ def upload_audio(request):
             pass # Or return error
 
     audio = Audio.objects.create(
-        file=file,
+        audio_file=file,
         title=title,
         duration=duration,
         user=request.user,
@@ -64,14 +64,22 @@ class AudioListView(generics.ListAPIView):
     def list(self, request, *args, **kwargs):
         queryset = self.filter_queryset(self.get_queryset())
 
-        # Filter out audios where file does not exist
+        # Filter out audios where file does not exist or schema is mismatched
         valid_audios = []
         for audio in queryset:
             try:
-                # 'file' is the new field name
-                if audio.file and os.path.exists(audio.file.path):
+                # Defensive coding: check if 'audio_file' attr exists
+                if not hasattr(audio, 'audio_file'):
+                     continue
+
+                if audio.audio_file and os.path.exists(audio.audio_file.path):
                     valid_audios.append(audio)
-            except Exception:
+            except AttributeError:
+                 # Missing field or related object
+                 continue
+            except Exception as e:
+                # Log error if possible (print to stderr for logs)
+                print(f"Error checking file for audio {audio.id}: {e}")
                 continue
         
         page = self.paginate_queryset(valid_audios)
@@ -141,7 +149,7 @@ class AudioUploadMultipleView(generics.CreateAPIView):
             title = f.name if f.name else 'Audio File'
             audio = Audio.objects.create(
                 title=title,
-                file=f, # Changed from audio_file
+                audio_file=f, # Changed from file
                 user=request.user,
                 folder=folder
             )
@@ -154,4 +162,28 @@ class AudioUploadMultipleView(generics.CreateAPIView):
             "folder": folder_data,
             "uploaded_audios": audio_data
         }, status=status.HTTP_201_CREATED)
+
+
+from django.http import FileResponse
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def stream_audio(request, pk):
+    try:
+        audio = Audio.objects.get(pk=pk)
+    except Audio.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    if audio.user != request.user:
+        return Response(status=status.HTTP_403_FORBIDDEN)
+
+    if not audio.audio_file or not os.path.exists(audio.audio_file.path):
+         return Response({'error': 'File not found on server'}, status=status.HTTP_404_NOT_FOUND)
+
+    # Open the file in binary mode and return a FileResponse
+    # This bypasses Nginx media serving and lets Django serve it.
+    file_handle = open(audio.audio_file.path, 'rb')
+    response = FileResponse(file_handle, content_type='audio/mpeg')
+    response['Content-Disposition'] = f'inline; filename="{os.path.basename(audio.audio_file.name)}"'
+    return response
 

@@ -8,7 +8,6 @@ urlpatterns = [
     path('api/auth/', include('accounts.urls')),
     path('api/folders/', include('folders.urls')),
     path('api/audios/', include('audios.urls')),
-    path('api/pdfs/', include('pdfs.urls')),
     path('api/notes/', include('notes.urls')),
 ]
 
