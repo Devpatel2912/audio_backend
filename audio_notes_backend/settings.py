@@ -70,8 +70,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'audionotes_db',    
-        'USER': 'postgres',
-        'PASSWORD': 'system',
+        'USER': 'YourUsername',
+        'PASSWORD': 'YourPassword',
         'HOST': 'localhost',
         'PORT': '5432',
     }
