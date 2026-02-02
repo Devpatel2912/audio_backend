@@ -15,3 +15,14 @@ class User(AbstractUser):
             self.is_active = True
         super().save(*args, **kwargs)
 
+
+class OTP(models.Model):
+    email = models.EmailField()
+    otp_code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def is_valid(self):
+        from django.utils import timezone
+        import datetime
+        return self.created_at >= timezone.now() - datetime.timedelta(minutes=10)
+

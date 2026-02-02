@@ -2,14 +2,14 @@ from django.db import models
 from audios.models import Audio
 
 
-from pdfs.models import Pdf
+
 
 class Note(models.Model):
     audio = models.ForeignKey(Audio, on_delete=models.CASCADE, related_name='notes', null=True, blank=True)
-    pdf = models.ForeignKey(Pdf, on_delete=models.CASCADE, related_name='notes', null=True, blank=True)
+
     note_text = models.TextField()
     audio_timestamp = models.FloatField(null=True, blank=True)
-    page_number = models.IntegerField(null=True, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -18,7 +18,6 @@ class Note(models.Model):
     def __str__(self):
         if self.audio:
             return f"Note on Audio at {self.audio_timestamp}s"
-        elif self.pdf:
-            return f"Note on PDF page {self.page_number}"
+
         return "Note"
 

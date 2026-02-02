@@ -6,7 +6,6 @@ User = get_user_model()
 class Folder(models.Model):
     FOLDER_TYPES = (
         ('audio', 'Audio'),
-        ('pdf', 'PDF'),
     )
     name = models.CharField(max_length=255)
     user = models.ForeignKey(User, on_delete=models.CASCADE)

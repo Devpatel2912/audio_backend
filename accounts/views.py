@@ -4,7 +4,10 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
-from .models import User
+from django.core.mail import send_mail
+from django.conf import settings
+from .models import User, OTP
+import random
 from .serializers import UserRegistrationSerializer, UserSerializer
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -73,10 +76,86 @@ def login(request):
     }, status=status.HTTP_200_OK)
 
 
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def send_otp(request):
+    email = request.data.get('email')
+    if not email:
+        return Response({'error': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        user = User.objects.get(email=email)
+    except User.DoesNotExist:
+        return Response({'error': 'User with this email does not exist'}, status=status.HTTP_404_NOT_FOUND)
+        
+    otp_code = str(random.randint(100000, 999999))
+    
+    # Delete old OTPs for this email to prevent clutter and potential reuse issues
+    OTP.objects.filter(email=email).delete()
+    
+    OTP.objects.create(email=email, otp_code=otp_code)
+    
+    # Send email
+    subject = 'Your Login OTP'
+    message = f'Your OTP for login is {otp_code}. It expires in 10 minutes.'
+    email_from = settings.DEFAULT_FROM_EMAIL
+    recipient_list = [email]
+    
+    try:
+        send_mail(subject, message, email_from, recipient_list)
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return Response({'error': 'Failed to send OTP email'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    return Response({'message': 'OTP sent successfully'}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+@authentication_classes([])
+def verify_otp(request):
+    email = request.data.get('email')
+    otp_code = request.data.get('otp')
+    
+    if not email or not otp_code:
+        return Response({'error': 'Email and OTP are required'}, status=status.HTTP_400_BAD_REQUEST)
+        
+    try:
+        otp_entry = OTP.objects.filter(email=email).last()
+        if not otp_entry:
+             return Response({'error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
+             
+        if otp_entry.otp_code != otp_code:
+            return Response({'error': 'Invalid OTP'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        if not otp_entry.is_valid():
+            return Response({'error': 'OTP expired'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        # OTP is valid, log the user in
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Delete used OTP
+        otp_entry.delete()
+
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'user': UserSerializer(user).data,
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }, status=status.HTTP_200_OK)
+
+    except Exception as e:
+        print(f"Error verifying OTP: {e}")
+        return Response({'error': 'Something went wrong'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
 from audios.models import Audio
 from audios.serializers import AudioSerializer
-from pdfs.models import Pdf
-from pdfs.serializers import PdfSerializer
+
 
 class UserProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -99,9 +178,6 @@ class RecentItemsView(APIView):
 
     def get(self, request):
         recent_audios = Audio.objects.filter(user=request.user).order_by('-created_at')[:3]
-        recent_pdfs = Pdf.objects.filter(user=request.user).order_by('-created_at')[:3]
-
         return Response({
-            'audios': AudioSerializer(recent_audios, many=True, context={'request': request}).data,
-            'pdfs': PdfSerializer(recent_pdfs, many=True, context={'request': request}).data
+            'audios': AudioSerializer(recent_audios, many=True, context={'request': request}).data
         })
