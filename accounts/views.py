@@ -15,6 +15,7 @@ from rest_framework.permissions import IsAuthenticated
 
 
 
+"""
 @api_view(['POST'])
 @permission_classes([AllowAny])
 @authentication_classes([])
@@ -31,6 +32,7 @@ def register(request):
         }, status=status.HTTP_201_CREATED)
     print(f"Server: Register failed: {serializer.errors}")
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+"""
 
 
 @api_view(['POST'])
@@ -84,16 +86,11 @@ def send_otp(request):
     if not email:
         return Response({'error': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
     
-    try:
-        user = User.objects.get(email=email)
-    except User.DoesNotExist:
-        return Response({'error': 'User with this email does not exist'}, status=status.HTTP_404_NOT_FOUND)
-        
+    # We allow sending OTP to any email to support easy login/registration
     otp_code = str(random.randint(100000, 999999))
     
-    # Delete old OTPs for this email to prevent clutter and potential reuse issues
+    # Delete old OTPs for this email
     OTP.objects.filter(email=email).delete()
-    
     OTP.objects.create(email=email, otp_code=otp_code)
     
     # Send email
@@ -132,20 +129,27 @@ def verify_otp(request):
         if not otp_entry.is_valid():
             return Response({'error': 'OTP expired'}, status=status.HTTP_400_BAD_REQUEST)
             
-        # OTP is valid, log the user in
-        try:
-            user = User.objects.get(email=email)
-        except User.DoesNotExist:
-             return Response({'error': 'User not found'}, status=status.HTTP_404_NOT_FOUND)
-
-        # Delete used OTP
+        # Success! Delete used OTP
         otp_entry.delete()
+
+        # Get user or create a new one (Passwordless flow)
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={'username': email.split('@')[0]} # Default username from email
+        )
+        
+        if created:
+            # Set a random password for newly created items to keep security, 
+            # though they will mainly use OTP.
+            user.set_unusable_password() 
+            user.save()
 
         refresh = RefreshToken.for_user(user)
         return Response({
             'user': UserSerializer(user).data,
             'refresh': str(refresh),
             'access': str(refresh.access_token),
+            'created': created
         }, status=status.HTTP_200_OK)
 
     except Exception as e:
